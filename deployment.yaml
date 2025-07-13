@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: flask-s3-app
-        image: <your-image>
+        image: <DOCKER_IMAGE>
         env:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
@@ -29,6 +29,6 @@ spec:
         - name: AWS_REGION
           value: ap-southeast-1
         - name: S3_BUCKET
-          value: your-bucket-name
+          value: pht-flaskapp-bucket
         ports:
-        - containerPort: 5000
+        - containerPort: 5000 
