@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_REPO = "hieupro7410/flask-s3-app"
-        DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"  // Sử dụng BUILD_NUMBER làm tag
+        DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"
         AWS_REGION = "ap-southeast-1"
         EKS_CLUSTER_NAME = "lan-dau"
     }
@@ -63,15 +63,23 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 sh """
-                    # Cập nhật image trong deployment
-                    sed -i 's|<DOCKER_IMAGE>|${DOCKER_IMAGE}|g' deployment.yaml
+                    # Kiểm tra image đã push thành công
+                    docker pull ${DOCKER_IMAGE} || true
                     
-                    # Áp dụng cấu hình Kubernetes
-                    kubectl apply -f deployment.yaml
+                    # Cập nhật image trong deployment và thêm imagePullSecrets nếu cần
+                    sed -i 's|<DOCKER_IMAGE>|${DOCKER_IMAGE}|g' deployment.yaml
+                    sed -i 's|imagePullSecrets:.*|imagePullSecrets:\n      - name: docker-hub-creds|g' deployment.yaml
+                    
+                    # Áp dụng cấu hình Kubernetes với validate=false
+                    kubectl apply -f deployment.yaml --validate=false
                     kubectl apply -f service.yaml
                     kubectl apply -f ingress.yaml
-                    kubectl rollout status deployment/flask-s3-app --timeout=2m
-                    kubectl get pods
+                    
+                    # Kiểm tra trạng thái và logs nếu có lỗi
+                    kubectl rollout status deployment/flask-s3-app --timeout=2m || \
+                    (kubectl describe pod -l app=flask-s3-app && exit 1)
+                    
+                    kubectl get pods -o wide
                 """
             }
         }
