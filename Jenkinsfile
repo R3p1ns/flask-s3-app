@@ -69,6 +69,7 @@ pipeline {
                     # Áp dụng cấu hình Kubernetes
                     kubectl apply -f deployment.yaml
                     kubectl apply -f service.yaml
+                    kubectl apply -f ingress.yaml
                     kubectl rollout status deployment/flask-s3-app --timeout=2m
                     kubectl get pods
                 """
