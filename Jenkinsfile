@@ -16,23 +16,6 @@ pipeline {
             }
         }
 
-        // Stage 2: Configure AWS EKS
-        stage('Configure AWS EKS') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-                    sh """
-                        aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
-                        kubectl config current-context  
-                        kubectl get nodes
-                    """
-                }
-            }
-        }
 
         // Stage 3: Build Docker Image
         stage('Build Docker Image') {
@@ -63,15 +46,33 @@ pipeline {
         }
 
         // Stage 5: Deploy lên Kubernetes
-        stage('Deploy to Kubernetes') {
-            steps {
+        stage('Deploy to EKS') {
+    steps {
+        script {
+            withCredentials([
+                string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+            ]) {
                 sh """
-                    kubectl apply -f k8s/deployment.yaml --validate=false
-                    kubectl apply -f k8s/service.yaml --validate=false
-                    kubectl apply -f k8s/ingress.yaml --validate=false
-                    kubectl get pods
+                # Cấu hình AWS CLI
+                aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+                aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+                aws configure set region ${AWS_REGION}
+
+                # Cập nhật kubeconfig với đầy đủ quyền
+                aws eks --region ${AWS_REGION} update-kubeconfig --name ${EKS_CLUSTER_NAME}
+
+                # Kiểm tra kết nối
+                kubectl get nodes
+
+                # Triển khai ứng dụng
+                sed -i 's|<DOCKER_IMAGE>|${DOCKER_IMAGE}:${DOCKER_TAG}|g' k8s/deployment.yaml
+                kubectl apply -f depoyment.yaml
+                kubectl rollout status deployment/flask-s3-app --timeout=2m
                 """
             }
         }
+    }
+}
     }
 }
