@@ -52,6 +52,7 @@ pipeline {
                     # Áp dụng cấu hình Kubernetes
                     kubectl ${KUBE_CONFIG} apply -f deployment.yaml
                     kubectl ${KUBE_CONFIG} apply -f service.yaml
+                    kubectl ${KUBE_CONFIG} apply -f ingress.yaml
                     
                     # Kiểm tra trạng thái
                     kubectl ${KUBE_CONFIG} get pods
