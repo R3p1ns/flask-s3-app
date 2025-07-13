@@ -61,27 +61,27 @@ pipeline {
         }
 
         stage('Deploy to EKS') {
-            steps {
-                sh """
-                    # Kiểm tra image đã push thành công
-                    docker pull ${DOCKER_IMAGE} || true
-                    
-                    # Cập nhật image trong deployment và thêm imagePullSecrets nếu cần
-                    sed -i 's|<DOCKER_IMAGE>|${DOCKER_IMAGE}|g' deployment.yaml
-                    sed -i 's|imagePullSecrets:.*|imagePullSecrets:\n      - name: docker-hub-creds|g' deployment.yaml
-                    
-                    # Áp dụng cấu hình Kubernetes với validate=false
-                    kubectl apply -f deployment.yaml --validate=false
-                    kubectl apply -f service.yaml
-                    kubectl apply -f ingress.yaml
-                    
-                    # Kiểm tra trạng thái và logs nếu có lỗi
-                    kubectl rollout status deployment/flask-s3-app --timeout=2m || \
-                    (kubectl describe pod -l app=flask-s3-app && exit 1)
-                    
-                    kubectl get pods -o wide
-                """
-            }
-        }
+    steps {
+        sh """
+            # Kiểm tra image
+            docker pull ${DOCKER_IMAGE} || true
+            
+            # Cập nhật image trong deployment (sử dụng delimiter khác thay vì |)
+            sed -i 's#<DOCKER_IMAGE>#${DOCKER_IMAGE}#g' deployment.yaml
+            
+            # Thêm imagePullSecrets (sử dụng delimiter @ để tránh xung đột với /)
+            sed -i 's@imagePullSecrets:.*@imagePullSecrets:\\n      - name: docker-hub-creds@' deployment.yaml
+            
+            # Áp dụng cấu hình
+            kubectl apply -f deployment.yaml --validate=false
+            kubectl apply -f service.yaml
+            kubectl apply -f ingress.yaml
+            
+            # Kiểm tra trạng thái
+            kubectl rollout status deployment/flask-s3-app --timeout=2m || \\
+            (kubectl describe pod -l app=flask-s3-app && exit 1)
+        """
+    }
+}
     }
 }
