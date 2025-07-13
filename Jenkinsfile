@@ -7,14 +7,7 @@ pipeline {
         AWS_REGION = "ap-southeast-1"
         EKS_CLUSTER_NAME = "lan-dau"
     }
-
-    stages {
-        stage('Configure EKS Access') {
-        steps {
-            sh """
-                aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
-            """
-        }
+   
     }
         // Stage 1: Checkout code từ Git
         stage('Checkout') {
@@ -22,8 +15,24 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/R3p1ns/flask-s3-app.git'
             }
         }
+        // Stage 2: Configure AWS EKS
+         stage('Configure AWS EKS') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',  // Credentials ID lưu trong Jenkins
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh """
+                        aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
+                    """
+                }
+            }
+        }
 
-        // Stage 2: Build Docker Image
+
+        // Stage 3: Build Docker Image
         stage('Build Docker Image') {
             steps {
                 script {
@@ -32,7 +41,7 @@ pipeline {
             }
         }
 
-        // Stage 3: Push Image lên Docker Hub
+        // Stage 4: Push Image lên Docker Hub
         stage('Push to Docker Hub') {
             steps {
                 script {
@@ -51,7 +60,7 @@ pipeline {
             }
         }
 
-        // Stage 4: Deploy lên Kubernetes
+        // Stage 5: Deploy lên Kubernetes
         stage('Deploy to Kubernetes') {
         steps {
             sh """
