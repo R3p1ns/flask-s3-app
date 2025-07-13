@@ -4,9 +4,18 @@ pipeline {
     environment {
         DOCKER_HUB_REPO = "hieupro7410/flask-s3-app"  // Thay bằng username Docker Hub của bạn
         DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"
+        AWS_REGION = "ap-southeast-1"
+        EKS_CLUSTER_NAME = "lan-dau"
     }
 
     stages {
+        stage('Configure EKS Access') {
+        steps {
+            sh """
+                aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
+            """
+        }
+    }
         // Stage 1: Checkout code từ Git
         stage('Checkout') {
             steps {
@@ -44,19 +53,14 @@ pipeline {
 
         // Stage 4: Deploy lên Kubernetes
         stage('Deploy to Kubernetes') {
-            steps {
-                sh """
-                    # Thay thế image trong file deployment.yaml
-                    sed -i 's|image:.*|image: ${DOCKER_IMAGE}|g' deployment.yaml
-                    
-                    # Áp dụng cấu hình Kubernetes
-                    kubectl ${KUBE_CONFIG} apply -f deployment.yaml
-                    kubectl ${KUBE_CONFIG} apply -f service.yaml
-                    kubectl ${KUBE_CONFIG} apply -f ingress.yaml
-                    
-                    # Kiểm tra trạng thái
-                    kubectl ${KUBE_CONFIG} get pods
-                """
+        steps {
+            sh """
+                
+                kubectl apply -f deployment.yaml
+                kubectl apply -f service.yaml
+                kubectl apply -f ingress.yaml
+                kubectl get pods
+            """
             }
         }
     }
