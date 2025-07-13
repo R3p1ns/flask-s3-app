@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_REPO = "/flask-s3-app"  // Thay bằng username Docker Hub của bạn
+        DOCKER_HUB_REPO = "hieupro7410/flask-s3-app"  // Thay bằng username Docker Hub của bạn
         DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"
     }
 
