@@ -3,21 +3,36 @@ pipeline {
 
     environment {
         DOCKER_HUB_REPO = "hieupro7410/flask-s3-app"
-        DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"
+        DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${env.BUILD_NUMBER}"  // Sử dụng BUILD_NUMBER làm tag
         AWS_REGION = "ap-southeast-1"
         EKS_CLUSTER_NAME = "lan-dau"
+        K8S_DIR = "k8s"  // Thư mục chứa file k8s
     }
 
     stages {
-        // Stage 1: Checkout code từ Git
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/R3p1ns/flask-s3-app.git'
             }
         }
 
+        stage('Configure AWS EKS') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh """
+                        aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+                        aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+                        aws configure set region ${AWS_REGION}
+                        aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
+                        kubectl get nodes
+                    """
+                }
+            }
+        }
 
-        // Stage 3: Build Docker Image
         stage('Build Docker Image') {
             steps {
                 script {
@@ -26,7 +41,6 @@ pipeline {
             }
         }
 
-        // Stage 4: Push Image lên Docker Hub
         stage('Push to Docker Hub') {
             steps {
                 script {
@@ -45,34 +59,19 @@ pipeline {
             }
         }
 
-        // Stage 5: Deploy lên Kubernetes
         stage('Deploy to EKS') {
-    steps {
-        script {
-            withCredentials([
-                string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
-            ]) {
+            steps {
                 sh """
-                # Cấu hình AWS CLI
-                aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
-                aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
-                aws configure set region ${AWS_REGION}
-
-                # Cập nhật kubeconfig với đầy đủ quyền
-                aws eks --region ${AWS_REGION} update-kubeconfig --name ${EKS_CLUSTER_NAME}
-
-                # Kiểm tra kết nối
-                kubectl get nodes
-
-                # Triển khai ứng dụng
-                sed -i 's|<DOCKER_IMAGE>|${DOCKER_IMAGE}:${DOCKER_TAG}|g' k8s/deployment.yaml
-                kubectl apply -f depoyment.yaml
-                kubectl rollout status deployment/flask-s3-app --timeout=2m
+                    # Cập nhật image trong deployment
+                    sed -i 's|<DOCKER_IMAGE>|${DOCKER_IMAGE}|g' ${K8S_DIR}/deployment.yaml
+                    
+                    # Áp dụng cấu hình Kubernetes
+                    kubectl apply -f ${K8S_DIR}/deployment.yaml
+                    kubectl apply -f ${K8S_DIR}/service.yaml
+                    kubectl rollout status deployment/flask-s3-app --timeout=2m
+                    kubectl get pods
                 """
             }
         }
-    }
-}
     }
 }
