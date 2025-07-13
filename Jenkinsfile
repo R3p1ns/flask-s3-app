@@ -29,7 +29,7 @@ pipeline {
                 script {
                     withCredentials([[
                         $class: 'UsernamePasswordMultiBinding',
-                        credentialsId: 'dockerhub-creds',  // Credentials ID lưu trong Jenkins
+                        credentialsId: 'docker-hub-cred',  // Credentials ID lưu trong Jenkins
                         usernameVariable: 'DOCKER_HUB_USER',
                         passwordVariable: 'DOCKER_HUB_PASS'
                     ]]) {
